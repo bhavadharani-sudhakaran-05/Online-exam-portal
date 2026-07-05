@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Teacher Login</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #e8f5e9, #a5d6a7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+   .logo-container {
+  width: 100%;
+  max-width: 400px;   /* SAME AS LOGIN BOX */
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.logo {
+  max-width: 100%;
+  height: auto;        /* keeps logo proportions */
+  object-fit: contain; /* VERY IMPORTANT for logos */
+}
+
+
+    .login-box {
+      background: #ffffff;
+      padding: 40px 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    h2 {
+      margin-bottom: 25px;
+      color: #2e7d32;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .input-container {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .input-container i {
+      position: absolute;
+      top: 50%;
+      left: 12px;
+      transform: translateY(-50%);
+      color: #aaa;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 14px 14px 40px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
+    button {
+      padding: 14px;
+      background: #2e7d32;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background: #1b5e20;
+      transform: scale(1.02);
+    }
+
+    #message {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #d32f2f;
+    }
+
+    @media (max-width: 600px) {
+      .login-box {
+        padding: 30px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="logo-container">
+    <img src="assets/siet.jpg" alt="SIET Logo" class="logo">
+</div>
+
+
+  <div class="login-box">
+    <h2>Teacher Login</h2>
+    <div class="input-container">
+      <i class="fas fa-user"></i>
+      <input type="text" id="login_id" placeholder="Login ID" required>
+    </div>
+    <div class="input-container">
+      <i class="fas fa-lock"></i>
+      <input type="password" id="password" placeholder="Password" required>
+    </div>
+    <button onclick="login()"><i class="fas fa-sign-in-alt"></i>Login</button>
+    <p id="message"></p>
+  </div>
+<script>
+  async function login() {
+
+    const loginId = document.getElementById("login_id").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const message = document.getElementById("message");
+
+    message.textContent = "";
+
+    try {
+
+      const response = await fetch("/api/teacher/login", {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          loginId: loginId,
+          password: password
+        })
+
+      });
+
+      if (response.ok) {
+
+        window.location.href = "teacher.html";
+
+      } else {
+
+        message.textContent = "❌ Invalid login ID or password";
+
+      }
+
+    } catch (e) {
+
+      message.textContent = "Server error";
+
+    }
+
+  }</script>
+
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Maven
+/target/
+
+# Database files
+/data/
+*.db
+
+# Logs
+*.log
+
+# IDE files
+.idea/
+.vscode/
+
+# OS files
+.DS_Store

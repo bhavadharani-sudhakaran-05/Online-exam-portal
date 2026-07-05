@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SIET OES - Home</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(to bottom right, #e8f5e9, #c8e6c9);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .header {
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+      padding: 40px 10px 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 44px;
+      letter-spacing: 1px;
+    }
+
+    .header p {
+      margin: 10px 0 0;
+      font-size: 18px;
+      color: #eafaea;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .box {
+      background: white;
+      padding: 50px 40px;
+      border-radius: 24px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+      max-width: 750px;
+      width: 100%;
+      text-align: center;
+      transition: transform 0.3s ease;
+    }
+
+    .box:hover {
+      transform: translateY(-5px);
+    }
+
+    .box h2 {
+      color: #2e7d32;
+      font-size: 32px;
+      margin-bottom: 15px;
+    }
+
+    .box p {
+      color: #555;
+      font-size: 17px;
+      margin-bottom: 30px;
+      line-height: 1.7;
+    }
+
+    .button-group {
+      margin-top: 20px;
+    }
+
+    .button-group a {
+      display: inline-flex;
+      align-items: center;
+      margin: 10px 20px;
+      padding: 14px 30px;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 15px rgba(76, 175, 80, 0.3);
+    }
+
+    .button-group a i {
+      margin-right: 10px;
+      font-size: 18px;
+    }
+
+    .button-group a:hover {
+      background-color: #388e3c;
+      transform: translateY(-3px);
+    }
+
+    .illustration {
+      margin-top: 30px;
+    }
+
+    .illustration img {
+      max-width: 220px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0); }
+    }
+
+    footer {
+      background-color: #4CAF50;
+      text-align: center;
+      padding: 18px;
+      color: white;
+      font-size: 15px;
+      font-weight: 400;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1><i class="fas fa-graduation-cap"></i> SIET LMS</h1>
+    <p>Your Friendly Online Exam Portal</p>
+  </div>
+
+  <div class="main">
+    <div class="box">
+      <h2>Welcome to the SIET Online Examination System</h2>
+      <p>Login as a <strong>Student</strong> to take tests, or as a <strong>Teacher</strong> to manage questions, track results, and handle exam evaluations securely and smartly.</p>
+
+      <div class="button-group">
+        <a href="studlog.html"
+           onmouseover="showImage('student')"
+           onmouseout="resetImage()">
+          <i class="fas fa-user-graduate"></i> Student Login
+        </a>
+      
+        <a href="teacherlog.html"
+           onmouseover="showImage('teacher')"
+           onmouseout="resetImage()">
+          <i class="fas fa-chalkboard-teacher"></i> Teacher Login
+        </a>
+      </div>
+      
+      <div class="illustration">
+        <img id="hoverImage" src="https://cdn-icons-png.flaticon.com/512/3135/3135755.png" alt="Exam Icon">
+      </div>
+      
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 SIET OES | All Rights Reserved</p>
+  </footer>
+  <script>
+    const image = document.getElementById('hoverImage');
+  
+    function showImage(type) {
+      if (type === 'student') {
+        image.src = 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png'; // Student icon
+      } else if (type === 'teacher') {
+        image.src = 'https://cdn-icons-png.flaticon.com/512/2784/2784461.png'; // Teacher icon
+      }
+    }
+  
+    function resetImage() {
+      image.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135755.png'; // Default icon
+    }
+  </script>
+  
+</body>
+</html>

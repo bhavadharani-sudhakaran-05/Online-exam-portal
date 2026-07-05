@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SIET LMS Student Dashboard with Camera Monitoring</title>
+    <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          margin: 0;
+          padding: 0;
+          background: linear-gradient(to right, #2ecc71, #27ae60);
+          color: #333;
+        }
+
+        .main-content {
+          padding: 40px;
+          background-color: #fff;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+          border-radius: 10px;
+          margin: 50px auto;
+          max-width: 1000px;
+          position: relative;
+        }
+
+        h3 {
+          font-size: 2.5rem;
+          font-weight: bold;
+          margin-bottom: 20px;
+          color: #2e8b57;
+          text-align: center;
+        }
+
+        .timer {
+          font-size: 1.5rem;
+          color: red;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+
+        .camera-container {
+          position: relative;
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        canvas {
+          width: 640px;
+          height: 480px;
+          border-radius: 10px;
+          margin: 0 10px;
+          background-color: black;
+        }
+
+        .status {
+          text-align: center;
+          font-size: 1.1rem;
+          margin-top: 10px;
+          color: green;
+        }
+
+        .malpractice {
+          color: red;
+          font-weight: bold;
+        }
+
+        .course-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 20px;
+        }
+
+        .course-card {
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 12px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .course-card button {
+          background-color: #28a745;
+          color: white;
+          padding: 12px 20px;
+          border: none;
+          border-radius: 8px;
+          font-size: 1.1rem;
+          cursor: pointer;
+        }
+
+        .test-card {
+          background-color: #ecf0f1;
+          padding: 20px;
+          border-radius: 10px;
+          margin-bottom: 20px;
+        }
+
+        button {
+          padding: 10px 20px;
+          background-color: #2e8b57;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+          .course-grid {
+            grid-template-columns: 1fr;
+          }
+
+          canvas {
+            width: 100%;
+            height: auto;
+          }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-content" id="dashboard">
+    <h3>Student Dashboard</h3>
+    <div class="course-grid">
+        <div class="course-card">
+            <h4>Test: ITVAC Training</h4>
+            <p>CTPS</p>
+            <button onclick="takeTest('CTPS')">Take Test</button>
+        </div>
+        <div class="course-card">
+            <h4>Test: ITVAC Training</h4>
+            <p>Java</p>
+            <button onclick="takeTest('Java')">Take Test</button>
+        </div>
+        <div class="course-card">
+            <h4>Test: ITVAC Training</h4>
+            <p>ADS</p>
+            <button onclick="takeTest('ADS')">Take Test</button>
+        </div>
+    </div>
+</div>
+
+<audio id="alertSound" src="smoke.mp3" preload="auto"></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+<!-- cam.html -->
+<!-- [Same head section with styles remains unchanged] -->
+
+<script>
+    let video, canvas, context, model, timer, timeLeft = 600, testType;
+    let malpracticeDetected = false;
+    let testInProgress = false;
+
+    window.onload = function () {
+      // Load questions from localStorage instead of backend
+      const questions = JSON.parse(localStorage.getItem("questions"));
+      if (!questions) alert("No questions available. Please ask teacher to add.");
+    };
+
+    async function takeTest(type) {
+      testType = type;
+      timeLeft = parseInt(localStorage.getItem(`duration_${type}`)) || 600;
+      malpracticeDetected = false;
+      testInProgress = true;
+
+      document.getElementById('dashboard').innerHTML = `
+        <h3>Test: ${type}</h3>
+        <div class="timer" id="timer">Time Left: 10:00</div>
+        <div class="camera-container">
+            <canvas id="canvas"></canvas>
+            <div class="status" id="status">Monitoring...</div>
+        </div>
+        <form id="test-form"></form>
+      `;
+
+      await setupCamera();
+      await loadModel();
+      monitor();
+
+      const questions = JSON.parse(localStorage.getItem('questions')) || [];
+      const testQuestions = questions.filter(q => q.testTitle === testType);
+
+      if (testQuestions.length === 0) {
+        alert("No questions available.");
+        return;
+      }
+
+      const form = document.getElementById('test-form');
+      testQuestions.forEach((q, i) => {
+        form.innerHTML += `
+          <div class="test-card">
+            <p>${i + 1}. ${q.questionText}</p>
+            ${['option1','option2','option3','option4'].map(opt => `
+                <label><input type="radio" name="q${i}" value="${opt}"> ${q[opt]}</label><br>
+            `).join('')}
+          </div>
+        `;
+      });
+
+      form.innerHTML += `<button type="button" onclick="submitTest()">Submit Test</button>`;
+      startTimer();
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (testInProgress && document.hidden && !malpracticeDetected) {
+        malpracticeDetected = true;
+        submitTest(true);
+      }
+    });
+
+    async function setupCamera() {
+      canvas = document.getElementById('canvas');
+      context = canvas.getContext('2d');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+      await new Promise(resolve => {
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          resolve();
+        };
+      });
+    }
+
+    async function loadModel() {
+      model = await cocoSsd.load();
+    }
+
+    function monitor() {
+      if (!testInProgress || malpracticeDetected) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      model.detect(video).then(predictions => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        let persons = 0, forbiddenItems = [];
+        predictions.forEach(pred => {
+          const [x, y, width, height] = pred.bbox;
+          context.beginPath();
+          context.rect(x, y, width, height);
+          context.strokeStyle = 'red';
+          context.stroke();
+          context.fillStyle = 'red';
+          context.fillText(pred.class, x, y > 10 ? y - 5 : 10);
+          if (pred.class === 'person') persons++;
+          if (['book', 'cell phone', 'mobile phone', 'paper'].includes(pred.class.toLowerCase())) {
+            forbiddenItems.push(pred.class);
+          }
+        });
+
+        if (persons !== 1 || forbiddenItems.length > 0) {
+          document.getElementById("status").innerHTML = `<span class="malpractice">Malpractice Detected!</span>`;
+          malpracticeDetected = true;
+          clearInterval(timer);
+          submitTest(true);
+        } else {
+          document.getElementById("status").innerHTML = `Monitoring: ${persons} person, No forbidden items`;
+          requestAnimationFrame(monitor);
+        }
+      }).catch(() => requestAnimationFrame(monitor));
+    }
+
+    function startTimer() {
+      timer = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        document.getElementById("timer").textContent = `Time Left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        timeLeft--;
+        if (timeLeft < 0) {
+          clearInterval(timer);
+          submitTest();
+        }
+      }, 1000);
+    }
+
+    function submitTest(isMalpractice = false) {
+      clearInterval(timer);
+      testInProgress = false;
+
+      const form = document.getElementById('test-form');
+      const questions = JSON.parse(localStorage.getItem('questions')) || [];
+      const testQuestions = questions.filter(q => q.testTitle === testType);
+      let mark = 0;
+
+      if (!isMalpractice) {
+        testQuestions.forEach((q, i) => {
+          const selected = form.querySelector(`input[name="q${i}"]:checked`);
+          if (selected && selected.value === q.correctAnswer) mark++;
+        });
+      }
+
+      const username = localStorage.getItem("studentUsername") || "unknown_student";
+      const scores = JSON.parse(localStorage.getItem("studentScores")) || [];
+      const scoreObj = { username, score: mark, testType };
+  const existingIndex = scores.findIndex(s => s.username === username && s.testType === testType);
+
+  if (existingIndex >= 0) {
+    scores[existingIndex] = scoreObj;  // update only that test's score
+  } else {
+    scores.push(scoreObj);  // add new test score
+  }
+  localStorage.setItem("studentScores", JSON.stringify(scores));
+
+
+      document.getElementById('dashboard').innerHTML = `
+        <h3>Test Completed!</h3>
+        <p>Your mark: ${mark} out of ${testQuestions.length}</p>
+        ${isMalpractice ? '<p class="malpractice">Malpractice was detected during the test.</p>' : ''}
+        <button onclick="window.location.reload()">Return to Dashboard</button>
+      `;
+    }
+</script>
+
+</body>
+</html>
