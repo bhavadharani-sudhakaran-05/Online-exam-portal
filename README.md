@@ -65,7 +65,7 @@ This approach reduces server load and makes the system lightweight and scalable 
 
 - Spring Data JPA
 
-- PostgreSQL
+- MySQL
 
 - Hibernate
 
