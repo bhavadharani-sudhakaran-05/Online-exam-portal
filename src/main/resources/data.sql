@@ -1,2 +1,5 @@
-INSERT INTO users (username, password, role) VALUES ('student1', 'student123', 'STUDENT');
-INSERT INTO users (username, password, role) VALUES ('teacher1', 'teacher123', 'TEACHER');
+INSERT INTO users (email, login_id, name, password)
+VALUES ('student1@gmail.com', 'student1', 'Student One', 'student123');
+
+INSERT INTO teachers (login_id, password, name)
+VALUES ('teacher1', 'teacher123', 'Teacher One');

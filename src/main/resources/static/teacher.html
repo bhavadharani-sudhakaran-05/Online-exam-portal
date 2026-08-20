@@ -57,21 +57,44 @@
           color: #2c3e50;
           margin-top: 20px;
         }
-        form, input, textarea, select, button {
+        .question-form {
           width: 100%;
-          margin: 10px 0;
-          padding: 10px;
-          border-radius: 8px;
-          font-size: 1rem;
-          border: 1px solid #ccc;
+          display: block;
         }
-        button {
+        .question-form input,
+        .question-form textarea,
+        .question-form select,
+        .question-form button {
+          width: 100%;
+          margin: 12px 0;
+          padding: 14px 16px;
+          border-radius: 10px;
+          font-size: 1rem;
+          border: 1px solid #d1d5db;
+          box-sizing: border-box;
+          background-color: #fff;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .question-form input:focus,
+        .question-form textarea:focus,
+        .question-form select:focus {
+          outline: none;
+          border-color: #27ae60;
+          box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.12);
+        }
+        .question-form textarea {
+          min-height: 110px;
+          resize: vertical;
+        }
+        .question-form button {
           background-color: #27ae60;
           color: white;
           border: none;
           cursor: pointer;
+          font-weight: 600;
+          margin-top: 18px;
         }
-        button:hover {
+        .question-form button:hover {
           background-color: #229954;
         }
         table {
@@ -91,11 +114,52 @@
         td {
           background: #f0fff4;
         }
+        button {
+          font-family: inherit;
+        }
         .delete-btn {
           background-color: #e74c3c;
+          color: #fff;
+          border: 1px solid #d63a2f;
+          border-radius: 5px;
+          padding: 8px 14px;
+          font-weight: 700;
+          cursor: pointer;
         }
         .delete-btn:hover {
           background-color: #c0392b;
+        }
+        .mark-btn {
+          background: #eaeaea;
+          color: #222;
+          border: 1px solid #c7c7c7;
+          border-radius: 4px;
+          padding: 6px 12px;
+          font-weight: 600;
+          cursor: pointer;
+          margin: 0 4px;
+        }
+        .mark-btn:hover {
+          background: #d9d9d9;
+        }
+        .download-btn-wrap {
+          display: flex;
+          justify-content: center;
+          margin: 20px 0 10px;
+        }
+        .download-btn {
+          background: #ffffff;
+          color: #2c3e50;
+          border: 1px solid #3d5366;
+          border-radius: 6px;
+          padding: 10px 18px;
+          font-size: 1.05rem;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: none;
+        }
+        .download-btn:hover {
+          background: #f3f5f6;
         }
         .pass {
           color: green;
@@ -111,7 +175,7 @@
 <h3>📋 Teacher Dashboard</h3>
 <div class="main-content">
     <h4>🎓 Create a New Question</h4>
-    <form id="add-question-form">
+    <form id="add-question-form" class="question-form">
         <input type="text" id="test-title" placeholder="Test Title (e.g., CTPS)" />
         <input type="number" id="test-duration" placeholder="Test Duration (minutes)" />
         <input type="number" id="total-questions" placeholder="Number of Questions in Set" />
@@ -145,7 +209,9 @@
     </table>
 
     <h4>📊 Student Scores</h4>
-    <button onclick="downloadCSV()">Download CSV</button>
+    <div class="download-btn-wrap">
+        <button class="download-btn" onclick="downloadCSV()">Download CSV</button>
+    </div>
     <table>
         <thead>
         <tr>
@@ -239,8 +305,8 @@
           <td>${entry.testType}</td>
           <td>${entry.score}</td>
           <td class="${entry.status}">${entry.status || '-'}</td>
-          <td><button onclick="markStatus(${i}, 'pass')">Pass</button><button onclick="markStatus(${i}, 'fail')">Fail</button></td>
-          <td><button class='delete-btn' onclick='removeScore(${i})'>Delete</button></td>
+          <td><button class='mark-btn' type='button' onclick='markStatus(${i}, "pass")'>Pass</button><button class='mark-btn' type='button' onclick='markStatus(${i}, "fail")'>Fail</button></td>
+          <td><button class='delete-btn' type='button' onclick='removeScore(${i})'>Delete</button></td>
         </tr>`;
       });
 

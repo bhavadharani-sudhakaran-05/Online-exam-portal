@@ -49,7 +49,8 @@
           height: 480px;
           border-radius: 10px;
           margin: 0 10px;
-          background-color: black;
+          background-color: #1a1a1a;
+          border: 2px solid #2ecc71;
         }
 
         .status {
@@ -103,15 +104,41 @@
           cursor: pointer;
         }
 
-        @media (max-width: 768px) {
-          .course-grid {
-            grid-template-columns: 1fr;
-          }
+        /* Loading overlay */
+        .loading-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.7);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          color: white;
+          font-size: 1.3rem;
+          gap: 20px;
+        }
+        .spinner {
+          width: 60px; height: 60px;
+          border: 6px solid rgba(255,255,255,0.3);
+          border-top-color: #2ecc71;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-          canvas {
-            width: 100%;
-            height: auto;
-          }
+        .camera-error {
+          background: #fff3cd;
+          border: 1px solid #ffc107;
+          padding: 15px;
+          border-radius: 8px;
+          margin: 10px 0;
+          color: #856404;
+        }
+
+        @media (max-width: 768px) {
+          .course-grid { grid-template-columns: 1fr; }
+          canvas { width: 100%; height: auto; }
         }
     </style>
 </head>
@@ -143,45 +170,79 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
-<!-- cam.html -->
-<!-- [Same head section with styles remains unchanged] -->
-
 <script>
     let video, canvas, context, model, timer, timeLeft = 600, testType;
     let malpracticeDetected = false;
     let testInProgress = false;
+    let monitoringStarted = false;
+    const GRACE_PERIOD_MS = 5000; // 5 second warm-up before malpractice detection kicks in
+    let monitoringStartTime = 0;
 
     window.onload = function () {
-      // Load questions from localStorage instead of backend
-      const questions = JSON.parse(localStorage.getItem("questions"));
-      if (!questions) alert("No questions available. Please ask teacher to add.");
+      // Page loaded - questions are validated per-test when student clicks Take Test
     };
+
+    function showLoading(message) {
+      removeLoading();
+      const div = document.createElement('div');
+      div.className = 'loading-overlay';
+      div.id = 'loadingOverlay';
+      div.innerHTML = `<div class="spinner"></div><div id="loadingMsg">${message}</div>`;
+      document.body.appendChild(div);
+    }
+
+    function updateLoadingMsg(msg) {
+      const el = document.getElementById('loadingMsg');
+      if (el) el.textContent = msg;
+    }
+
+    function removeLoading() {
+      const el = document.getElementById('loadingOverlay');
+      if (el) el.remove();
+    }
 
     async function takeTest(type) {
       testType = type;
       timeLeft = parseInt(localStorage.getItem(`duration_${type}`)) || 600;
       malpracticeDetected = false;
       testInProgress = true;
+      monitoringStarted = false;
 
       document.getElementById('dashboard').innerHTML = `
         <h3>Test: ${type}</h3>
-        <div class="timer" id="timer">Time Left: 10:00</div>
+        <div class="timer" id="timer">Time Left: ${Math.floor(timeLeft/60)}:${String(timeLeft%60).padStart(2,'0')}</div>
         <div class="camera-container">
             <canvas id="canvas"></canvas>
-            <div class="status" id="status">Monitoring...</div>
+            <div class="status" id="status">Initializing camera...</div>
         </div>
         <form id="test-form"></form>
       `;
 
-      await setupCamera();
+      // Step 1: Setup camera
+      showLoading('📷 Requesting camera access...');
+      const cameraOk = await setupCamera();
+      if (!cameraOk) {
+        removeLoading();
+        return;
+      }
+
+      // Step 2: Load AI model
+      updateLoadingMsg('🤖 Loading AI monitoring model... (10-20 seconds)');
       await loadModel();
+      removeLoading();
+
+      // Step 3: Start monitoring
+      monitoringStartTime = Date.now();
+      monitoringStarted = true;
+      document.getElementById('status').textContent = '✅ Monitoring active';
       monitor();
 
+      // Step 4: Load questions
       const questions = JSON.parse(localStorage.getItem('questions')) || [];
       const testQuestions = questions.filter(q => q.testTitle === testType);
 
       if (testQuestions.length === 0) {
-        alert("No questions available.");
+        alert("No questions available for this test.");
         return;
       }
 
@@ -202,70 +263,141 @@
     }
 
     document.addEventListener("visibilitychange", () => {
-      if (testInProgress && document.hidden && !malpracticeDetected) {
+      if (testInProgress && document.hidden && !malpracticeDetected && monitoringStarted) {
         malpracticeDetected = true;
         submitTest(true);
       }
     });
 
     async function setupCamera() {
-      canvas = document.getElementById('canvas');
-      context = canvas.getContext('2d');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
-      await new Promise(resolve => {
-        video.onloadedmetadata = () => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          resolve();
-        };
-      });
+      try {
+        canvas = document.getElementById('canvas');
+        context = canvas.getContext('2d');
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+
+        video = document.createElement('video');
+        video.srcObject = stream;
+        video.setAttribute('playsinline', ''); // iOS support
+        video.muted = true;
+
+        // Wait for metadata (dimensions) to load
+        await new Promise((resolve, reject) => {
+          video.onloadedmetadata = resolve;
+          video.onerror = reject;
+          setTimeout(() => reject(new Error('Camera metadata timeout')), 10000);
+        });
+
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+
+        // Play the video AFTER we know dimensions
+        await video.play();
+
+        // Confirm camera is working by drawing first frame
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        document.getElementById('status').textContent = '✅ Camera ready';
+        return true;
+
+      } catch (err) {
+        console.error('Camera error:', err);
+        const statusEl = document.getElementById('status');
+        if (!statusEl) return false;
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          statusEl.innerHTML = `<div class="camera-error">❌ Camera permission denied.<br>Please click the camera icon in your browser's address bar and allow access, then try again.</div>`;
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          statusEl.innerHTML = `<div class="camera-error">❌ No camera found. Please connect a webcam and try again.</div>`;
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          statusEl.innerHTML = `<div class="camera-error">❌ Camera is being used by another app (e.g. Zoom, Teams). Please close it and try again.</div>`;
+        } else {
+          statusEl.innerHTML = `<div class="camera-error">❌ Camera error: ${err.message}<br><small>Make sure you're accessing this page via <strong>http://localhost:8081</strong></small></div>`;
+        }
+        return false;
+      }
     }
 
     async function loadModel() {
-      model = await cocoSsd.load();
+      try {
+        model = await cocoSsd.load();
+      } catch (err) {
+        console.error('Model load error:', err);
+        const s = document.getElementById('status');
+        if (s) s.textContent = '⚠️ AI model unavailable. Monitoring disabled.';
+        model = null;
+      }
     }
 
     function monitor() {
       if (!testInProgress || malpracticeDetected) return;
+
+      // If no model, just keep drawing the video feed (camera still shows, no AI detection)
+      if (!model) {
+        if (video && canvas) context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(monitor);
+        return;
+      }
+
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
       model.detect(video).then(predictions => {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
         let persons = 0, forbiddenItems = [];
+
         predictions.forEach(pred => {
           const [x, y, width, height] = pred.bbox;
           context.beginPath();
           context.rect(x, y, width, height);
-          context.strokeStyle = 'red';
+          context.strokeStyle = '#00ff00';
+          context.lineWidth = 2;
           context.stroke();
-          context.fillStyle = 'red';
-          context.fillText(pred.class, x, y > 10 ? y - 5 : 10);
+          context.fillStyle = '#00ff00';
+          context.font = '14px Arial';
+          context.fillText(`${pred.class} ${Math.round(pred.score * 100)}%`, x, y > 14 ? y - 5 : 14);
+
           if (pred.class === 'person') persons++;
           if (['book', 'cell phone', 'mobile phone', 'paper'].includes(pred.class.toLowerCase())) {
             forbiddenItems.push(pred.class);
           }
         });
 
-        if (persons !== 1 || forbiddenItems.length > 0) {
-          document.getElementById("status").innerHTML = `<span class="malpractice">Malpractice Detected!</span>`;
+        const statusEl = document.getElementById('status');
+        if (!statusEl) return;
+
+        const elapsed = Date.now() - monitoringStartTime;
+        const inGrace = elapsed < GRACE_PERIOD_MS;
+
+        if (!inGrace && (persons !== 1 || forbiddenItems.length > 0)) {
+          let reasons = [];
+          if (persons === 0) reasons.push('No person detected');
+          else if (persons > 1) reasons.push(`${persons} persons detected`);
+          if (forbiddenItems.length > 0) reasons.push(`Forbidden: ${forbiddenItems.join(', ')}`);
+
+          statusEl.innerHTML = `<span class="malpractice">⚠️ Malpractice: ${reasons.join(' | ')}</span>`;
           malpracticeDetected = true;
           clearInterval(timer);
           submitTest(true);
         } else {
-          document.getElementById("status").innerHTML = `Monitoring: ${persons} person, No forbidden items`;
+          if (inGrace) {
+            statusEl.textContent = `🔄 Calibrating... ${Math.ceil((GRACE_PERIOD_MS - elapsed) / 1000)}s`;
+          } else {
+            statusEl.textContent = `✅ ${persons} person detected — No violations`;
+          }
           requestAnimationFrame(monitor);
         }
-      }).catch(() => requestAnimationFrame(monitor));
+      }).catch(() => {
+        if (video && canvas) context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(monitor);
+      });
     }
 
     function startTimer() {
       timer = setInterval(() => {
         const minutes = Math.floor(timeLeft / 60);
         const seconds = timeLeft % 60;
-        document.getElementById("timer").textContent = `Time Left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        const el = document.getElementById("timer");
+        if (el) el.textContent = `Time Left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
         timeLeft--;
         if (timeLeft < 0) {
           clearInterval(timer);
@@ -278,12 +410,17 @@
       clearInterval(timer);
       testInProgress = false;
 
+      // Stop camera
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+      }
+
       const form = document.getElementById('test-form');
       const questions = JSON.parse(localStorage.getItem('questions')) || [];
       const testQuestions = questions.filter(q => q.testTitle === testType);
       let mark = 0;
 
-      if (!isMalpractice) {
+      if (!isMalpractice && form) {
         testQuestions.forEach((q, i) => {
           const selected = form.querySelector(`input[name="q${i}"]:checked`);
           if (selected && selected.value === q.correctAnswer) mark++;
@@ -293,21 +430,24 @@
       const username = localStorage.getItem("studentUsername") || "unknown_student";
       const scores = JSON.parse(localStorage.getItem("studentScores")) || [];
       const scoreObj = { username, score: mark, testType };
-  const existingIndex = scores.findIndex(s => s.username === username && s.testType === testType);
+      const existingIndex = scores.findIndex(s => s.username === username && s.testType === testType);
 
-  if (existingIndex >= 0) {
-    scores[existingIndex] = scoreObj;  // update only that test's score
-  } else {
-    scores.push(scoreObj);  // add new test score
-  }
-  localStorage.setItem("studentScores", JSON.stringify(scores));
-
+      if (existingIndex >= 0) {
+        scores[existingIndex] = scoreObj;
+      } else {
+        scores.push(scoreObj);
+      }
+      localStorage.setItem("studentScores", JSON.stringify(scores));
 
       document.getElementById('dashboard').innerHTML = `
         <h3>Test Completed!</h3>
-        <p>Your mark: ${mark} out of ${testQuestions.length}</p>
-        ${isMalpractice ? '<p class="malpractice">Malpractice was detected during the test.</p>' : ''}
-        <button onclick="window.location.reload()">Return to Dashboard</button>
+        <p style="text-align:center;font-size:1.3rem;">
+          Your score: <strong>${mark}</strong> out of <strong>${testQuestions.length}</strong>
+        </p>
+        ${isMalpractice ? '<p class="malpractice" style="text-align:center;">⚠️ Malpractice was detected during the test.</p>' : ''}
+        <div style="text-align:center;margin-top:20px;">
+          <button onclick="window.location.reload()">Return to Dashboard</button>
+        </div>
       `;
     }
 </script>
