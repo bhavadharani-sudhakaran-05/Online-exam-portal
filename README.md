@@ -93,6 +93,10 @@ This approach reduces server load and makes the system lightweight and scalable 
 
 - Browser Camera API
 
+6. QA Testing
+
+- Playwright (E2E Automation)
+
 ### 🏗️ Project Architecture
 ---
 Online_Exam_Portal
@@ -191,6 +195,12 @@ mvn spring-boot:run
 - Open index.html using Live Server or browser
 
 - Login as Student or Teacher
+
+4. Automated QA Testing (Playwright)
+
+- Navigate to the `qa-tests` directory
+- Run `npm install`
+- Run `npx playwright test` to execute E2E tests for login, exam flow, and AI proctoring validation.
 
 ### 🎯 What This Project Demonstrates
 
