@@ -16,13 +16,20 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+
   use: {
+    video: 'on',
+    launchOptions:
+    {
+      slowMo: 1000,
+    },
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:8080',
+    baseURL: 'http://localhost:8081',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
+
 
   /* Configure projects for major browsers */
   projects: [
